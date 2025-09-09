@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Pro Tic-Tac-Toe — PvP & PvBot (Dynamic)</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --accent:#06b6d4;
+    --accent-2:#7c3aed;
+    --muted:#94a3b8;
+    --cell-bg: linear-gradient(180deg,#071129, #0b1a2b);
+    --glass: rgba(255,255,255,0.03);
+    --win-glow: 0 8px 30px rgba(124,58,237,0.35);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+    background:
+      radial-gradient(1200px 600px at 10% 10%, rgba(124,58,237,0.08), transparent 10%),
+      radial-gradient(1000px 500px at 90% 90%, rgba(6,182,212,0.06), transparent 10%),
+      var(--bg);
+    color:#e6eef6;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:28px;
+  }
+
+  .app {
+    width:min(980px,96vw);
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:14px;
+    padding:20px;
+    box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+    display:grid;
+    grid-template-columns: 360px 1fr;
+    gap:18px;
+    align-items:start;
+  }
+
+  /* Left panel - controls */
+  .panel {
+    background:var(--card);
+    padding:18px;
+    border-radius:12px;
+    min-height:320px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .brand {
+    display:flex;
+    gap:12px;
+    align-items:center;
+  }
+  .logo {
+    width:48px;height:48px;border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:flex;align-items:center;justify-content:center;font-weight:700;color:#04263a;
+    box-shadow: 0 6px 20px rgba(7,10,24,0.6);
+  }
+  h1{font-size:18px;margin:0}
+  p.lead{margin:0;color:var(--muted);font-size:13px}
+
+  .controls {display:grid;gap:10px;margin-top:8px}
+  .row{display:flex;gap:8px;align-items:center}
+  label{font-size:13px;color:var(--muted);min-width:110px}
+  input[type="number"]{
+    width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);
+    background:transparent;color:inherit;font-size:14px;
+  }
+  input[type="range"]{width:100%}
+  .btn {
+    display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    color:#021022;border:none;font-weight:600;cursor:pointer;
+    box-shadow: 0 8px 24px rgba(12,21,38,0.6);
+  }
+  .btn.ghost{
+    background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600;
+  }
+  .small {font-size:13px;padding:8px 10px;border-radius:8px}
+
+  .status {
+    margin-top:8px;padding:12px;border-radius:10px;background:var(--glass);color:var(--muted);
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+  }
+
+  /* Right panel - board */
+  .board-wrap{
+    display:flex;flex-direction:column;gap:12px;
+  }
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .turn {
+    font-size:16px;font-weight:700;color:#f8fafc;display:flex;gap:10px;align-items:center;
+  }
+  .scores{display:flex;gap:12px;align-items:center}
+  .score-pill{background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:10px;min-width:72px;text-align:center}
+  .grid {
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
+    border-radius:12px;padding:18px;display:flex;align-items:center;justify-content:center;
+    min-height:320px;
+    position:relative;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+  }
+
+  .board {
+    display:grid;
+    gap:8px;
+    width:min(100%,680px);
+  }
+
+  .cell {
+    background:var(--cell-bg);
+    border-radius:10px;
+    aspect-ratio:1/1;
+    display:flex;align-items:center;justify-content:center;
+    font-size:36px;font-weight:800;color:rgba(255,255,255,0.95);
+    cursor:pointer;user-select:none;
+    transition:transform .12s ease, box-shadow .12s ease, background .18s ease;
+    position:relative;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  .cell:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(2,6,23,0.6)}
+  .cell.small-font{font-size:28px}
+  .cell.x{color:#8ee9f2;text-shadow:0 6px 18px rgba(6,182,212,0.12)}
+  .cell.o{color:#d6b7ff;text-shadow:0 6px 18px rgba(124,58,237,0.12)}
+  .cell.disabled{cursor:not-allowed;opacity:0.95;transform:none;box-shadow:none}
+  .cell.highlight {
+    animation: pulse 900ms infinite alternate;
+    box-shadow: var(--win-glow);
+  }
+  @keyframes pulse{from{transform:scale(1)} to{transform:scale(1.04)}}
+
+  /* strike line */
+  .strike {
+    position:absolute;top:0;left:0;height:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    border-radius:6px;transform-origin:center;
+    box-shadow:0 12px 30px rgba(124,58,237,0.25);
+    transition:opacity .25s ease, transform .2s ease;
+    z-index:40;opacity:0;
+  }
+  .strike.show{opacity:1}
+
+  .footer-note{color:var(--muted);font-size:13px;margin-top:10px}
+
+  /* responsive */
+  @media (max-width:880px){
+    .app{grid-template-columns:1fr;align-items:stretch}
+    .panel{order:2}
+  }
+
+  /* small accessibility focus */
+  .cell:focus{outline:3px solid rgba(6,182,212,0.14);outline-offset:2px}
+</style>
+</head>
+<body>
+  <main class="app" role="application" aria-label="Tic Tac Toe app">
+    <section class="panel" aria-label="Controls">
+      <div class="brand">
+        <div class="logo">TT</div>
+        <div>
+          <h1>Pro Tic-Tac-Toe</h1>
+          <p class="lead">Dynamic NxN board • PvP • PvBot • Animated wins • Score persistence</p>
+        </div>
+      </div>
+
+      <div class="controls" aria-hidden="false">
+        <div class="row">
+          <label for="size">Board size (N×N)</label>
+          <input id="size" type="number" min="3" max="12" value="3" />
+        </div>
+
+        <div class="row">
+          <label for="winlen">Win length</label>
+          <input id="winlen" type="number" min="3" max="12" value="3" />
+        </div>
+
+        <div class="row">
+          <label for="mode">Mode</label>
+          <select id="mode" class="small" aria-label="Select mode">
+            <option value="pvp">2 Player (Local)</option>
+            <option value="pvc">1 Player (You vs Bot)</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label for="first">First player</label>
+          <select id="first" class="small" aria-label="Select first player">
+            <option value="X">X (You)</option>
+            <option value="O">O</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label for="difficulty">Bot difficulty</label>
+          <select id="difficulty" class="small">
+            <option value="easy">Easy — Random</option>
+            <option value="medium" selected>Medium — Win/Block heuristic</option>
+            <option value="hard">Hard — Minimax / Heuristic</option>
+          </select>
+        </div>
+
+        <div class="row" style="margin-top:6px">
+          <button id="start" class="btn">Start Game</button>
+          <button id="resetScores" class="btn ghost small">Reset Scores</button>
+        </div>
+
+        <div class="status" id="status-box" role="status">
+          <div id="msg">Ready. Configure board and press <strong>Start Game</strong>.</div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:var(--muted)">Last winner</div>
+            <div id="last-winner" style="font-weight:700">—</div>
+          </div>
+        </div>
+
+        <div style="margin-top:6px">
+          <div style="font-size:13px;color:var(--muted)">Tips</div>
+          <ul style="margin:6px 0 0 18px;color:var(--muted);font-size:13px;line-height:1.45">
+            <li>Use board sizes 3–5 for classic play; larger boards are supported.</li>
+            <li>Win length can be ≤ board size for longer games.</li>
+            <li>Keyboard: Tab to navigate cells and Enter/Space to play.</li>
+          </ul>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="board-wrap" aria-label="Game board">
+      <div class="topbar">
+        <div class="turn" id="turn-indicator">Player <span id="current-player">X</span>'s turn</div>
+        <div class="scores">
+          <div class="score-pill">X: <span id="score-x">0</span></div>
+          <div class="score-pill">O: <span id="score-o">0</span></div>
+          <div class="score-pill">Draws: <span id="score-d">0</span></div>
+        </div>
+      </div>
+
+      <div class="grid" id="grid-area">
+        <div id="board" class="board" role="grid" aria-label="Tic Tac Toe grid" tabindex="0"></div>
+        <div id="strike" class="strike" aria-hidden="true"></div>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end">
+        <button id="undo" class="btn ghost small" disabled>Undo</button>
+        <button id="restart" class="btn ghost small">Restart</button>
+      </div>
+
+      <div class="footer-note">Single-file ready web app. Save as an HTML file to run locally.</div>
+    </section>
+  </main>
+
+<script>
+/* Pro Dynamic Tic-Tac-Toe with PvBot (single-file)
+   - Mode: PvP or PvBot
+   - Bot difficulties: Easy, Medium, Hard
+   - Dynamic N and winLen
+   - Undo (PvP: last move; PvBot: last human+bot)
+   - Persistent scores (localStorage)
+*/
+
+(function(){
+  // DOM
+  const sizeInput = document.getElementById('size');
+  const winlenInput = document.getElementById('winlen');
+  const startBtn = document.getElementById('start');
+  const boardEl = document.getElementById('board');
+  const turnEl = document.getElementById('current-player');
+  const msgEl = document.getElementById('msg');
+  const strikeEl = document.getElementById('strike');
+  const scoreX = document.getElementById('score-x');
+  const scoreO = document.getElementById('score-o');
+  const scoreD = document.getElementById('score-d');
+  const lastWinnerEl = document.getElementById('last-winner');
+  const restartBtn = document.getElementById('restart');
+  const undoBtn = document.getElementById('undo');
+  const resetScoresBtn = document.getElementById('resetScores');
+  const firstSelect = document.getElementById('first');
+  const modeSelect = document.getElementById('mode');
+  const diffSelect = document.getElementById('difficulty');
+
+  // State
+  let N = 3;
+  let winLen = 3;
+  let board = []; // '' | 'X' | 'O'
+  let current = 'X';
+  let active = false;
+  let winnerInfo = null;
+  let scores = { X:0, O:0, D:0 };
+  let lastWinner = '—';
+  let history = []; // stack: {pos, player}
+  let mode = 'pvp'; // 'pvp' | 'pvc'
+  let botSymbol = 'O';
+  let humanSymbol = 'X';
+  let botThinking = false;
+
+  // Storage keys
+  const STORAGE = {
+    SCORES: 'pro_ttt_scores_v2',
+    LAST: 'pro_ttt_last_v2'
+  };
+
+  function loadScores(){
+    try{
+      const raw = localStorage.getItem(STORAGE.SCORES);
+      const l = localStorage.getItem(STORAGE.LAST);
+      if(raw) scores = JSON.parse(raw);
+      if(l) lastWinner = l;
+    }catch(e){ /* ignore */ }
+    renderScores();
+    lastWinnerEl.textContent = lastWinner || '—';
+  }
+  function saveScores(){
+    try { localStorage.setItem(STORAGE.SCORES, JSON.stringify(scores)); localStorage.setItem(STORAGE.LAST, lastWinner); } catch(e){}
+  }
+
+  // Init
+  loadScores();
+  attachHandlers();
+  prepareBoard(3,3,'X','pvp');
+
+  function attachHandlers(){
+    startBtn.addEventListener('click', () => {
+      const s = parseInt(sizeInput.value)||3;
+      const w = parseInt(winlenInput.value)||s;
+      const first = firstSelect.value || 'X';
+      const m = modeSelect.value || 'pvp';
+      if(s < 3 || s > 12){ alert('Board size must be between 3 and 12'); return; }
+      if(w < 3 || w > s){ alert('Win length must be between 3 and board size'); return; }
+      prepareBoard(s,w, first, m);
+    });
+
+    restartBtn.addEventListener('click', () => {
+      prepareBoard(N, winLen, current, mode);
+    });
+
+    undoBtn.addEventListener('click', () => {
+      if(mode === 'pvp') {
+        if(history.length === 0 || !active) return;
+        const last = history.pop();
+        board[last.pos] = '';
+        updateCellUI(last.pos, '');
+        winnerInfo = null;
+        strikeEl.classList.remove('show');
+        clearHighlights();
+        // revert current to the player who made that undone move (so they can move again)
+        current = last.player;
+        active = true;
+        updateTurnUI();
+        undoBtn.disabled = history.length === 0;
+        msg('Move undone');
+      } else {
+        // PvC: undo last human+bot if possible. History stores moves chronologically.
+        if(history.length === 0) return;
+        // If last move was bot's, remove it
+        let removed = 0;
+        while(history.length && removed < 2){
+          const last = history[history.length-1];
+          // Only remove if player matches bot/human
+          // remove bot first if present
+          if(removed === 0 && last.player === botSymbol){
+            history.pop(); board[last.pos] = ''; updateCellUI(last.pos, '');
+            removed++;
+            continue;
+          }
+          // then remove human
+          if(history.length && history[history.length-1].player === humanSymbol){
+            const h = history.pop(); board[h.pos] = ''; updateCellUI(h.pos, '');
+            removed++;
+            continue;
+          }
+          break;
+        }
+        winnerInfo = null;
+        strikeEl.classList.remove('show');
+        clearHighlights();
+        active = true;
+        current = humanSymbol;
+        updateTurnUI();
+        undoBtn.disabled = history.length === 0;
+        msg('Last round undone');
+      }
+    });
+
+    resetScoresBtn.addEventListener('click', () => {
+      if(!confirm('Reset saved scores?')) return;
+      scores = {X:0,O:0,D:0}; lastWinner = '—'; saveScores(); renderScores();
+      lastWinnerEl.textContent = lastWinner;
+      msg('Scores reset');
+    });
+
+    // keyboard: Enter/Space triggers on focused cell
+    document.addEventListener('keydown', (e) => {
+      if(['Enter',' '].includes(e.key)){
+        const el = document.activeElement;
+        if(el && el.classList && el.classList.contains('cell')){
+          el.click();
+          e.preventDefault();
+        }
+      }
+    });
+  }
+
+  function prepareBoard(size = 3, wlen = 3, first='X', m='pvp'){
+    N = size;
+    winLen = wlen;
+    mode = m;
+    board = Array(N*N).fill('');
+    history = [];
+    winnerInfo = null;
+    botThinking = false;
+    active = true;
+    // Determine human/bot symbols
+    current = first || 'X';
+    if(mode === 'pvc'){
+      // human is X if first === X, else human is O. We'll treat "You" as selected first player: if user picks O and mode is pvc, user plays O
+      humanSymbol = first;
+      botSymbol = (first === 'X') ? 'O' : 'X';
+    } else {
+      humanSymbol = null; botSymbol = null;
+    }
+    undoBtn.disabled = true;
+    strikeEl.classList.remove('show');
+    clearHighlights();
+    renderBoard();
+    updateTurnUI();
+    msg(`Game ready — ${N}×${N}, win: ${winLen}. Mode: ${mode === 'pvc' ? '1-player' : '2-player'}. ${current} starts.`);
+    // If bot starts
+    if(mode === 'pvc' && current === botSymbol){
+      // small delay for UX
+      setTimeout(()=> botPlayTurn(), 250);
+    }
+  }
+
+  function renderBoard(){
+    boardEl.innerHTML = '';
+    boardEl.style.gridTemplateColumns = `repeat(${N}, minmax(48px, 1fr))`;
+    for(let i=0;i<N*N;i++){
+      const cell = document.createElement('button');
+      cell.className = 'cell';
+      cell.setAttribute('role','gridcell');
+      cell.setAttribute('aria-label',`Cell ${Math.floor(i/N)+1},${i%N+1}`);
+      cell.dataset.pos = i;
+      cell.tabIndex = 0;
+      cell.addEventListener('click', onCellClick);
+      cell.addEventListener('keydown', onCellKeyDown);
+      boardEl.appendChild(cell);
+    }
+    const fontClass = (N > 4) ? 'small-font' : '';
+    if(fontClass){
+      document.querySelectorAll('.cell').forEach(c=>c.classList.add(fontClass));
+    }
+    strikeEl.style.width = '0px'; strikeEl.style.opacity = '0';
+  }
+
+  function onCellKeyDown(e){
+    if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault(); e.target.click();
+    }
+  }
+
+  function onCellClick(e){
+    const pos = Number(e.currentTarget.dataset.pos);
+    if(!active) { msg('Game finished — restart to play again'); return; }
+    if(board[pos]) { msg('Cell already used'); return; }
+    // If PvC and it's bot's turn, ignore clicks
+    if(mode === 'pvc' && current === botSymbol) { msg('Wait — bot is thinking'); return; }
+    playHumanMove(pos);
+  }
+
+  function playHumanMove(pos){
+    makeMove(pos, current);
+    // If PvC, after human move schedule bot
+    if(mode === 'pvc' && active && current === botSymbol){
+      // bot will automatically act
+      setTimeout(()=> botPlayTurn(), 250);
+    }
+  }
+
+  function makeMove(pos, player){
+    if(board[pos]) return false;
+    board[pos] = player;
+    history.push({pos, player});
+    updateCellUI(pos, player);
+    undoBtn.disabled = false;
+
+    const win = checkWinner(board, N, winLen);
+    if(win && win.winner){
+      winnerInfo = win;
+      active = false;
+      highlightWin(win.cells);
+      drawStrikeLine(win.cells);
+      msg(`Player ${win.winner} wins!`);
+      scores[win.winner] = (scores[win.winner]||0) + 1;
+      lastWinner = win.winner;
+      saveScores(); renderScores();
+      lastWinnerEl.textContent = lastWinner;
+      return true;
+    }
+
+    if(board.every(Boolean)){
+      active = false;
+      msg(`It's a draw`);
+      scores.D = (scores.D||0) + 1;
+      lastWinner = 'Draw';
+      saveScores(); renderScores(); lastWinnerEl.textContent = lastWinner;
+      return true;
+    }
+
+    // switch turn
+    current = current === 'X' ? 'O' : 'X';
+    updateTurnUI();
+    return true;
+  }
+
+  function updateCellUI(pos, symbol){
+    const cell = boardEl.querySelector(`.cell[data-pos="${pos}"]`);
+    if(!cell) return;
+    cell.textContent = symbol || '';
+    cell.classList.remove('x','o');
+    if(symbol === 'X') cell.classList.add('x');
+    else if(symbol === 'O') cell.classList.add('o');
+    if(symbol) cell.classList.add('disabled'); else cell.classList.remove('disabled');
+  }
+
+  function updateTurnUI(){
+    turnEl.textContent = current;
+    msg(`Player ${current}'s turn`);
+  }
+
+  function msg(text){
+    msgEl.innerHTML = text;
+  }
+
+  function renderScores(){
+    scoreX.textContent = scores.X || 0;
+    scoreO.textContent = scores.O || 0;
+    scoreD.textContent = scores.D || 0;
+  }
+
+  function clearHighlights(){
+    document.querySelectorAll('.cell.highlight').forEach(c => c.classList.remove('highlight'));
+  }
+
+  function highlightWin(cells){
+    clearHighlights();
+    cells.forEach(pos => {
+      const el = boardEl.querySelector(`.cell[data-pos="${pos}"]`);
+      if(el) el.classList.add('highlight');
+    });
+  }
+
+  function drawStrikeLine(winCells){
+    if(!winCells || winCells.length === 0) return;
+    const first = boardEl.querySelector(`.cell[data-pos="${winCells[0]}"]`);
+    const last = boardEl.querySelector(`.cell[data-pos="${winCells[winCells.length-1]}"]`);
+    if(!first || !last) return;
+
+    const gRect = boardEl.getBoundingClientRect();
+    const a = first.getBoundingClientRect();
+    const b = last.getBoundingClientRect();
+
+    const ax = a.left + a.width/2 - gRect.left;
+    const ay = a.top + a.height/2 - gRect.top;
+    const bx = b.left + b.width/2 - gRect.left;
+    const by = b.top + b.height/2 - gRect.top;
+
+    const dx = bx - ax;
+    const dy = by - ay;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+    strikeEl.style.width = `${dist + 12}px`;
+    strikeEl.style.height = `8px`;
+    strikeEl.style.left = `${ax - 6}px`;
+    strikeEl.style.top = `${ay - 4}px`;
+    strikeEl.style.transform = `rotate(${angle}deg) translateZ(0)`;
+    strikeEl.classList.add('show');
+
+    strikeEl.animate([
+      { transform: `rotate(${angle}deg) scaleX(0.2)`, opacity: 0 },
+      { transform: `rotate(${angle}deg) scaleX(1.02)`, opacity: 1 },
+      { transform: `rotate(${angle}deg) scaleX(1)`, opacity: 1 }
+    ], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  }
+
+  /* Winner detection for variable board and variable winLen.
+     Returns {winner:'X'|'O', cells: [indexes..first..last] } or null.
+  */
+  function checkWinner(b, n, winLen){
+    function idx(r,c){ return r*n + c; }
+    function scanLine(positions){
+      let lastSym = '';
+      let run = [];
+      for(const p of positions){
+        const sym = b[p];
+        if(sym && sym === lastSym){
+          run.push(p);
+        }else{
+          if(run.length >= winLen){
+            return {winner: lastSym, cells: run.slice(0, winLen)};
+          }
+          run = sym ? [p] : [];
+          lastSym = sym;
+        }
+      }
+      if(run.length >= winLen){
+        return {winner: lastSym, cells: run.slice(0, winLen)};
+      }
+      return null;
+    }
+
+    // rows
+    for(let r=0;r<n;r++){
+      const pos = [];
+      for(let c=0;c<n;c++) pos.push(idx(r,c));
+      const res = scanLine(pos);
+      if(res) return res;
+    }
+    // cols
+    for(let c=0;c<n;c++){
+      const pos = [];
+      for(let r=0;r<n;r++) pos.push(idx(r,c));
+      const res = scanLine(pos);
+      if(res) return res;
+    }
+    // diagonals tl-br
+    for(let d=-(n-1); d<=n-1; d++){
+      const pos = [];
+      for(let r=0;r<n;r++){
+        const c = r - d;
+        if(c >= 0 && c < n) pos.push(idx(r,c));
+      }
+      if(pos.length >= winLen){
+        const res = scanLine(pos);
+        if(res) return res;
+      }
+    }
+    // anti-diagonals
+    for(let s=0; s<=2*(n-1); s++){
+      const pos = [];
+      for(let r=0;r<n;r++){
+        const c = s - r;
+        if(c >= 0 && c < n) pos.push(idx(r,c));
+      }
+      if(pos.length >= winLen){
+        const res = scanLine(pos);
+        if(res) return res;
+      }
+    }
+    return null;
+  }
+
+  /* ---------- Bot logic ----------
+     - Easy: random empty cell
+     - Medium: try winning move -> block opponent -> center -> random
+     - Hard: if board small (N<=3 && winLen<=3) use exact minimax; else use depth-limited minimax with heuristic + win/block immediate checks.
+  */
+
+  function botPlayTurn(){
+    if(mode !== 'pvc' || !active || botThinking) return;
+    botThinking = true;
+    msg('Bot is thinking...');
+    // small delay UX
+    setTimeout(()=>{
+      const difficulty = diffSelect.value || 'medium';
+      let move;
+      try{
+        if(difficulty === 'easy'){
+          move = bot_easy_move();
+        } else if(difficulty === 'medium'){
+          move = bot_medium_move();
+        } else {
+          move = bot_hard_move();
+        }
+      }catch(e){
+        move = bot_medium_move();
+      }
+      if(typeof move !== 'number') move = bot_medium_move();
+      // make bot move
+      makeMove(move, botSymbol);
+      botThinking = false;
+    }, 240);
+  }
+
+  function emptyPositions(b){
+    const arr = [];
+    for(let i=0;i<b.length;i++) if(!b[i]) arr.push(i);
+    return arr;
+  }
+
+  function bot_easy_move(){
+    const empties = emptyPositions(board);
+    return empties[Math.floor(Math.random()*empties.length)];
+  }
+
+  function bot_medium_move(){
+    // 1) win immediately
+    const winMove = findImmediateMove(botSymbol);
+    if(winMove !== null) return winMove;
+    // 2) block human
+    const block = findImmediateMove(humanSymbol);
+    if(block !== null) return block;
+    // 3) try center
+    const centerIndex = Math.floor((N*N)/2);
+    if(!board[centerIndex]) return centerIndex;
+    // 4) else random
+    return bot_easy_move();
+  }
+
+  // find move that gives symbol an immediate win
+  function findImmediateMove(symbol){
+    const empties = emptyPositions(board);
+    for(const pos of empties){
+      board[pos] = symbol;
+      const win = checkWinner(board, N, winLen);
+      board[pos] = '';
+      if(win && win.winner === symbol) return pos;
+    }
+    return null;
+  }
+
+  function bot_hard_move(){
+    // small/full minimax for small boards
+    if(N <= 3 && winLen <= 3){
+      return minimaxBestMove(board.slice(), botSymbol, true);
+    }
+    // For larger boards: try win/block first
+    const winMove = findImmediateMove(botSymbol);
+    if(winMove !== null) return winMove;
+    const block = findImmediateMove(humanSymbol);
+    if(block !== null) return block;
+    // attempt a limited-depth minimax with heuristic
+    const depthLimit = (N <= 4) ? 4 : 3; // keep it fast
+    const move = minimaxBestMove(board.slice(), botSymbol, false, depthLimit);
+    if(typeof move === 'number') return move;
+    // fallback
+    return bot_medium_move();
+  }
+
+  /* Minimax wrapper:
+     - if exact === true do full search (only used for tiny boards)
+     - else depth-limited with heuristic
+  */
+  function minimaxBestMove(bState, player, exact=false, depthLimit=4){
+    const opponent = (player === 'X') ? 'O' : 'X';
+    const empties = emptyPositions(bState);
+    if(empties.length === 0) return empties[0];
+
+    let bestScore = -Infinity;
+    let bestMove = null;
+
+    for(const pos of empties){
+      bState[pos] = player;
+      const score = minimax(bState, 0, false, player, opponent, exact ? Infinity : depthLimit, -Infinity, Infinity);
+      bState[pos] = '';
+      if(score > bestScore){
+        bestScore = score;
+        bestMove = pos;
+      }
+    }
+    return bestMove !== null ? bestMove : empties[0];
+  }
+
+  /* Minimax with alpha-beta and simple heuristic.
+     Returns numeric score from perspective of 'maximizer' (root player passed via rootPlayer param).
+  */
+  function minimax(bState, depth, isMaximizing, rootPlayer, rootOpponent, maxDepth, alpha, beta){
+    const win = checkWinner(bState, N, winLen);
+    if(win && win.winner === rootPlayer) return 1000 - depth; // earlier win better
+    if(win && win.winner === rootOpponent) return -1000 + depth;
+    if(bState.every(Boolean)) return 0;
+    if(depth >= maxDepth) return evaluateBoardHeuristic(bState, rootPlayer) * (1 - depth*0.02);
+
+    const player = isMaximizing ? rootPlayer : rootOpponent;
+    const opp = isMaximizing ? rootOpponent : rootPlayer;
+    const empties = emptyPositions(bState);
+
+    if(isMaximizing){
+      let value = -Infinity;
+      for(const pos of empties){
+        bState[pos] = player;
+        const score = minimax(bState, depth+1, false, rootPlayer, rootOpponent, maxDepth, alpha, beta);
+        bState[pos] = '';
+        value = Math.max(value, score);
+        alpha = Math.max(alpha, value);
+        if(alpha >= beta) break;
+      }
+      return value;
+    } else {
+      let value = Infinity;
+      for(const pos of empties){
+        bState[pos] = player;
+        const score = minimax(bState, depth+1, true, rootPlayer, rootOpponent, maxDepth, alpha, beta);
+        bState[pos] = '';
+        value = Math.min(value, score);
+        beta = Math.min(beta, value);
+        if(alpha >= beta) break;
+      }
+      return value;
+    }
+  }
+
+  /* Simple heuristic evaluation for larger boards:
+     - For each possible line (rows, cols, diagonals of length >= winLen), compute score:
+       + high weight for lines with many rootPlayer marks and no opponent marks,
+       - negative for lines with opponent advantage.
+  */
+  function evaluateBoardHeuristic(bState, rootPlayer){
+    const opp = rootPlayer === 'X' ? 'O' : 'X';
+    let score = 0;
+
+    // evaluate a list of positions (line)
+    function evalLine(posList){
+      let rCount = 0, oCount = 0;
+      for(const p of posList){
+        if(bState[p] === rootPlayer) rCount++;
+        else if(bState[p] === opp) oCount++;
+      }
+      if(rCount > 0 && oCount > 0) return 0; // contested line
+      if(rCount === 0 && oCount === 0) return 0; // empty line low value
+      if(oCount === 0 && rCount > 0) {
+        // more pieces is exponentially better
+        return Math.pow(10, rCount);
+      }
+      if(rCount === 0 && oCount > 0) {
+        return -Math.pow(8, oCount);
+      }
+      return 0;
+    }
+
+    const n = N;
+    // rows
+    for(let r=0;r<n;r++){
+      for(let start=0; start+winLen-1 < n; start++){
+        const pos = [];
+        for(let k=0;k<winLen;k++) pos.push(r*n + start+k);
+        score += evalLine(pos);
+      }
+    }
+    // cols
+    for(let c=0;c<n;c++){
+      for(let start=0; start+winLen-1 < n; start++){
+        const pos = [];
+        for(let k=0;k<winLen;k++) pos.push((start+k)*n + c);
+        score += evalLine(pos);
+      }
+    }
+    // diagonals tl-br
+    for(let r=0;r<n;r++){
+      for(let c=0;c<n;c++){
+        const pos = [];
+        for(let k=0;k<winLen;k++){
+          const rr = r+k, cc = c+k;
+          if(rr < n && cc < n) pos.push(rr*n + cc);
+        }
+        if(pos.length === winLen) score += evalLine(pos);
+      }
+    }
+    // anti-diagonals tr-bl
+    for(let r=0;r<n;r++){
+      for(let c=0;c<n;c++){
+        const pos = [];
+        for(let k=0;k<winLen;k++){
+          const rr = r+k, cc = c-k;
+          if(rr < n && cc >=0) pos.push(rr*n + cc);
+        }
+        if(pos.length === winLen) score += evalLine(pos);
+      }
+    }
+
+    return score;
+  }
+
+  // expose helpers for debugging
+  window.ProTTT = {
+    prepareBoard, makeMove, checkWinner, botPlayTurn
+  };
+
+})();
+</script>
+</body>
+</html>
